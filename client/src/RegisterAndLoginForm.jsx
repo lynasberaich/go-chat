@@ -10,7 +10,7 @@ export default function RegisterAndLoginForm() {
 
     async function handleSubmit(ev) {
         ev.preventDefault();
-        const url = isLoginOrRegister === 'register' ? 'http://localhost:4000/register' : 'http://localhost:4000/login'
+        const url = isLoginOrRegister === 'register' ? 'http://localhost:5173/register' : 'http://localhost:4000/login'
         const {data} = await axios.post(url, 
                             {username, password},
                             { headers: { 'Content-Type': 'application/json' } } // Include this for JSON

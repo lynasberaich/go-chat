@@ -5,11 +5,9 @@ import jwt from 'jsonwebtoken';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import bcrypt from 'bcryptjs';
+import {WebSocketServer} from 'ws';
 import {User} from './models/User.js';
 //const User = require('./models/User');
-
-axios.defaults.baseURL = process.env.CLIENT_URL;
-axios.defaults.withCredentials = true;
 
 dotenv.config();
 mongoose.connect(process.env.MONGO_URL);
@@ -38,14 +36,20 @@ app.get('/profile', (req,res) => {
             if (err) {
                 console.log('Token verification failed:', err);
                 return res.status(401).json('Invalid token');
+            } else {
+                const { id, username } = userData;
+                connection.userId = id;
+                connection.username = username;
+
+                // Re-log all usernames after assigning this connection's username
+                console.log('Current WebSocket clients:', 
+                    [...wss.clients].map(c => c.username).filter(Boolean)
+                );
             }
-            console.log('Verified user:', userdata);
-            const {id, username} = userdata;
-            res.json(userdata);
         });
     } else {
         console.log('No token provided');
-        res.status(401).json('no token');
+        //res.status(401).json('no token');
     }
 
 });
@@ -70,10 +74,6 @@ app.post('/login', async (req,res) => {
     }
 });
 
-
-
-
-
 app.post('/register', async (req,res) => {
     const {username, password} = req.body;
     try {
@@ -94,9 +94,41 @@ app.post('/register', async (req,res) => {
     }
     
 });
-app.listen(4000);
 
 
+const server = app.listen(4000);
 
-//c3I2pAKHUf6ccFFk
-//mongodb+srv://gochat:c3I2pAKHUf6ccFFk@cluster0.lebos.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0
+
+const wss = new WebSocketServer({server});
+wss.on('connection', (connection, req) => {
+    const cookies = req.headers.cookie;
+    if (cookies) {
+        const tokenCookieString = cookies.split(';').find(str => str.trim().startsWith('token='));
+        //console.log(tokenCookieString);
+        if (tokenCookieString) {
+            const token = tokenCookieString.split('=')[1];
+            if (token) {
+                jwt.verify(token, jwtSecret, {}, (err, userData) => {
+                    if (err) {
+                        console.error('JWT verification failed:', err);
+                    } else {
+                        const {userId, username} = userData;
+                        connection.userId = userId;
+                        connection.username = username;
+                        console.log('New WebSocket connection:', username);
+                    }
+                });
+            } else {
+                console.error('Token cookie string not found:', cookies);
+            }
+        } else {
+            console.error('No cookies found in the request headers');
+        }
+    }
+
+    [...wss.clients].forEach(client => {
+        client.send(JSON.stringify({
+            online : [...wss.clients].map(c => ({userId: c.userId, username:c.username}))
+        }));
+    });
+});
