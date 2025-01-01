@@ -11,6 +11,7 @@ export default function Chat() {
     const [selectedUserId, setSelectedUserId] = useState(null);
     const {username, id} = useContext(UserContext);
     const [newMessageText, setNewMessageText] = useState('');
+    const [messages, setMessages] = useState([]) ;
     useEffect(() => {
         const ws = new WebSocket('ws://localhost:4000');
         setWs(ws);
@@ -28,20 +29,38 @@ export default function Chat() {
 
     function handleMessage(ev) {
         const messageData = JSON.parse(ev.data);
-        if ('online' in messageData) {
+        // const messageData = ev.data
+        // console.log(messageData);
+        // try {
+        //     if ("online" in messageData) {
+        //         showOnlinePeople(messageData.online);
+        //     } else {
+        //         console.log(messageData)
+        //     }
+        // } catch(error) {
+        //     console.error("Failed to parse WebSocket message:", error, ev.data);
+        // }
+        // //console.log(messageData);
+        if ("online" in messageData) {
             showOnlinePeople(messageData.online);
+        } else {
+            // Add the incoming message to the messages array
+            setMessages((prev) => [...prev, { text: messageData.text, isOurs: false }]);
+            console.log("Received message:", messageData);
         }
-        //console.log(messageData);
+        //setMessages(prev => ([...prev, {text: newMessageText, isOurs: true}]));
     }
 
     function sendMessage(ev) {
         ev.preventDefault();
         ws.send(JSON.stringify({
-            message: {
                 recipient: selectedUserId,
                 text: newMessageText,
-            }
         }));
+
+        setMessages((prev) => [...prev, { text: newMessageText, isOurs: true }]);
+
+        setNewMessageText('');
     }
 
     //delete our own user from the object
@@ -71,6 +90,13 @@ export default function Chat() {
                     {!selectedUserId && (
                         <div className='flex h-full flex-grow items-center justify-center'>
                             <div className='text-gray-500'>Select a user to start a conversation!</div>
+                        </div>
+                    )}
+                    {!!selectedUserId && (
+                        <div>
+                            {messages.map(message => (
+                                <div>{message.text}</div>
+                            ))}
                         </div>
                     )}
                 </div>
