@@ -7,6 +7,7 @@ import cookieParser from 'cookie-parser';
 import bcrypt from 'bcryptjs';
 import {WebSocketServer} from 'ws';
 import {User} from './models/User.js';
+import {Message} from './models/Message.js';
 //const User = require('./models/User');
 
 dotenv.config();
@@ -129,13 +130,21 @@ wss.on('connection', (connection, req) => {
     }
 
 
-    connection.on('message', (message) => {
+    connection.on('message', async (message) => {
         const messageData = JSON.parse(message.toString());
         const {recipient, text} = messageData;
         if (recipient && text) {
+            const messageDoc = await Message.create({
+                sender: connection.userId,
+                recipient,
+                text,
+            });
             [...wss.clients]
                 .filter(c => c.userId === recipient) 
-                .forEach(c => c.send(JSON.stringify({text})))
+                .forEach(c => c.send(JSON.stringify({text, 
+                                                    sender: connection.userId, 
+                                                    recipient,
+                                                    id: messageDoc._id})))
         }
 
     });

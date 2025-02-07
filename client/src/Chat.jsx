@@ -4,6 +4,7 @@ import { User } from '../../api/models/User';
 import Avatar from './Avatar';
 import Logo from './Logo';
 import { UserContext } from './UserContext';
+import {uniqBy} from "lodash";
 
 export default function Chat() {
     const [ws, setWs] = useState(null);
@@ -29,6 +30,7 @@ export default function Chat() {
 
     function handleMessage(ev) {
         const messageData = JSON.parse(ev.data);
+        console.log({ev, messageData});
         // const messageData = ev.data
         // console.log(messageData);
         // try {
@@ -43,9 +45,9 @@ export default function Chat() {
         // //console.log(messageData);
         if ("online" in messageData) {
             showOnlinePeople(messageData.online);
-        } else {
+        } else if ('text' in messageData) {
             // Add the incoming message to the messages array
-            setMessages((prev) => [...prev, { text: messageData.text, isOurs: false }]);
+            setMessages((prev) => ([...prev, {...messageData}]));
             console.log("Received message:", messageData);
         }
         //setMessages(prev => ([...prev, {text: newMessageText, isOurs: true}]));
@@ -58,7 +60,13 @@ export default function Chat() {
                 text: newMessageText,
         }));
 
-        setMessages((prev) => [...prev, { text: newMessageText, isOurs: true }]);
+        setMessages((prev) => ([...prev, { 
+            text: newMessageText, 
+            isOurs: true, 
+            sender: id,
+            recipient: selectedUserId,
+            id: Date.now()
+            }]))  ;
 
         setNewMessageText('');
     }
@@ -66,6 +74,8 @@ export default function Chat() {
     //delete our own user from the object
     const onlinePeopleExclOurUser = {...onlinePeople};
     delete onlinePeopleExclOurUser[id];
+
+    const messagesWithoutDupes = uniqBy(messages, 'id'); 
 
     return (
         <div className="flex h-screen">
@@ -93,9 +103,15 @@ export default function Chat() {
                         </div>
                     )}
                     {!!selectedUserId && (
-                        <div>
-                            {messages.map(message => (
-                                <div>{message.text}</div>
+                        <div className='overflow-scroll-y-scroll'>
+                            {messagesWithoutDupes.map(message => (
+                                <div className={(message.sender === id ? 'text-right': 'text-left')}>
+                                    <div className={"text-left inline-block p-2 my-2 rounded-md text-sm " + (message.sender === id ? 'bg-pink-300 text-white':'bg-white text-gray-500')}>
+                                        sender: {message.sender}<br />
+                                        my id: {id}<br />
+                                        {message.text}
+                                    </div>
+                                </div>
                             ))}
                         </div>
                     )}
